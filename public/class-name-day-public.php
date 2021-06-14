@@ -10,6 +10,8 @@
  * @subpackage Name_Day/public
  */
 
+use Goutte\Client;
+
 /**
  * The public-facing functionality of the plugin.
  *
@@ -99,5 +101,54 @@ class Name_Day_Public {
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/name-day-public.js', array( 'jquery' ), $this->version, false );
 
 	}
+
+    /**
+     * @return string
+     */
+	public function dayName(): string
+    {
+        ob_start();
+
+        $names = $this->getCachedDayNames();
+
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/partials/day-name-display.php';
+
+        $content = ob_get_contents();
+
+        ob_end_clean();
+
+        return $content;
+    }
+
+    /**
+     * @return array
+     */
+    private function getDayNames(): array
+    {
+        $client = new Client();
+        $crawler = $client->request('GET', 'https://day.lt/');
+        $names = [];
+
+        $crawler->filter('.vardadieniai > a')->each(function($node) use (&$names) {
+            $names[] = $node->text();
+        });
+
+        return $names;
+    }
+
+    /**
+     * @return array
+     */
+    private function getCachedDayNames(): array
+    {
+        $data = get_transient('day_names');
+
+        if (empty($data)) {
+            $data = $this->getDayNames();
+            set_transient('day_names', $data, 3600 * 24);
+        }
+
+        return $data;
+    }
 
 }
